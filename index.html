@@ -5,7 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>%UNITY_WEB_NAME%</title>
     
-    <!-- Import Maps to load Three.js and MindAR as ES Modules -->
+    <!-- Safety patch for Unity loader userAgent parsing -->
+    <script>
+      if (typeof window !== 'undefined') {
+        if (!window.navigator) { window.navigator = {}; }
+        if (!window.navigator.userAgent) { 
+          window.navigator.userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'; 
+        }
+      }
+    </script>
+
+    <!-- Import Maps for Three.js and MindAR ES Modules -->
     <script type="importmap">
       {
         "imports": {
@@ -28,7 +38,7 @@
       <canvas id="unity-canvas"></canvas>
     </div>
 
-    <!-- Manual tap-to-start overlay button -->
+    <!-- Tap-to-start button required for mobile camera permissions -->
     <button id="ar-start-button" onclick="window.startWebAR()" style="position: absolute; z-index: 999; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
       Start AR Camera
     </button>
@@ -72,14 +82,6 @@
           if (btn) btn.style.display = 'block';
         }
       };
-
-      // Ensure safe navigator userAgent fallback string for Unity loaders
-      if (typeof window.navigator === 'undefined') {
-        window.navigator = {};
-      }
-      if (typeof window.navigator.userAgent !== 'string') {
-        window.navigator.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-      }
 
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/WebARBuild.loader.js";
