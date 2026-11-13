@@ -15,12 +15,12 @@
       }
     </script>
 
-    <!-- Import Maps for Three.js and MindAR ES Modules -->
+    <!-- Import Maps: Pinned to Three.js r150 for MindAR v1.2.5 compatibility -->
     <script type="importmap">
       {
         "imports": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
           "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
         }
       }
@@ -62,16 +62,20 @@
 
           const { renderer, scene, camera } = mindarThree;
 
-          // Add ambient light so solid materials render properly
-          const light = new THREE.AmbientLight(0xffffff, 1.0);
-          scene.add(light);
+          // Add ambient and directional lighting so solid MeshStandardMaterials render correctly
+          const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+          scene.add(ambientLight);
+
+          const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          directionalLight.position.set(0, 1, 1);
+          scene.add(directionalLight);
 
           // Create target anchor index 0
           const anchor = mindarThree.addAnchor(0);
 
-          // Create a solid 3D mesh instead of a green wireframe
+          // Create a solid shaded 3D cube mesh (non-wireframe)
           const geometry = new THREE.BoxGeometry(1, 1, 1);
-          const material = new THREE.MeshStandardMaterial({ color: 0x007bff });
+          const material = new THREE.MeshStandardMaterial({ color: 0x007bff, roughness: 0.4 });
           const cube = new THREE.Mesh(geometry, material);
           
           cube.position.set(0, 0.4, 0);
@@ -82,4 +86,51 @@
           renderer.setAnimationLoop(() => {
             if (anchor.visible) {
               if (unityInstance != null) {
-                // Optional: extract matrix
+                const position = new THREE.Vector3();
+                const quaternion = new THREE.Quaternion();
+                const scale = new THREE.Vector3();
+                
+                anchor.group.matrixWorld.decompose(position, quaternion, scale);
+                const dataString = `${position.x},${position.y},${position.z},${quaternion.x},${quaternion.y},${quaternion.z},${quaternion.w}`;
+                
+                unityInstance.SendMessage("WebARManager", "UpdateTrackingData", dataString);
+              }
+            } else {
+              if (unityInstance != null) {
+                unityInstance.SendMessage("WebARManager", "OnTargetLost");
+              }
+            }
+            renderer.render(scene, camera);
+          });
+        } catch (error) {
+          console.error("Failed to start MindAR:", error);
+          alert("Could not start camera. Make sure camera permissions are allowed.");
+          if (btn) btn.style.display = 'block';
+        }
+      };
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebARBuild.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/WebARBuild.data.unityweb",
+        frameworkUrl: buildUrl + "/WebARBuild.framework.js.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "HizralWork",
+        productName: "WebAR Test",
+        productVersion: "0.1.1",
+      };
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
+        }).then((instance) => {
+          unityInstance = instance;
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
