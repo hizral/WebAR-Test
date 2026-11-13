@@ -39,7 +39,7 @@
     </div>
 
     <!-- Tap-to-start button required for mobile camera permissions -->
-    <button id="ar-start-button" onclick="window.startWebAR()" style="position: absolute; z-index: 999; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+    <button id="ar-start-button" style="position: absolute; z-index: 999; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
       Start AR Camera
     </button>
 
@@ -49,7 +49,7 @@
 
       let unityInstance = null;
 
-      window.startWebAR = async function() {
+      document.getElementById('ar-start-button').addEventListener('click', async function() {
         const btn = document.getElementById('ar-start-button');
         if (btn) btn.style.display = 'none';
 
@@ -105,9 +105,10 @@
         } catch (error) {
           console.error("Failed to start MindAR:", error);
           alert("Could not start camera. Make sure camera permissions are allowed.");
+          const btn = document.getElementById('ar-start-button');
           if (btn) btn.style.display = 'block';
         }
-      };
+      });
 
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/WebARBuild.loader.js";
