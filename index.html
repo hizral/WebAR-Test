@@ -82,7 +82,7 @@
               }
             } else {
               if (unityInstance != null) {
-                unityInstance.SendMessage("WebARManager", "OnTargetLost");
+                unityInstance.SendMessage("WebARManager", "OnTargetLost", "");
               }
             }
             renderer.render(scene, camera);
