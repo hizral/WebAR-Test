@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>%UNITY_WEB_NAME%</title>
+    
+    <!-- Import Maps to load Three.js and MindAR as ES Modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
+
+    <style>
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+      #unity-container { width: 100%; height: 100%; position: absolute; }
+      #unity-canvas { width: 100% !important; height: 100% !important; background: transparent !important; pointer-events: none; }
+      video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas"></canvas>
+    </div>
+
+    <!-- Manual tap-to-start overlay button -->
+    <button id="ar-start-button" onclick="window.startWebAR()" style="position: absolute; z-index: 999; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+      Start AR Camera
+    </button>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { MindARThree } from 'mindar-image-three';
+
+      let unityInstance = null;
+
+      window.startWebAR = async function() {
+        const btn = document.getElementById('ar-start-button');
+        if (btn) btn.style.display = 'none';
+
+        try {
+          const mindarThree = new MindARThree({
+            container: document.body,
+            imageTargetSrc: "TemplateData/targets.mind",
+          });
+
+          const { renderer, scene, camera } = mindarThree;
+          const anchor = mindarThree.addAnchor(0);
+
+          await mindarThree.start();
+
+          renderer.setAnimationLoop(() => {
+            if (anchor.visible) {
+              if (unityInstance != null) {
+                unityInstance.SendMessage("WebARManager", "OnTargetFound");
+              }
+            } else {
+              if (unityInstance != null) {
+                unityInstance.SendMessage("WebARManager", "OnTargetLost");
+              }
+            }
+            renderer.render(scene, camera);
+          });
+        } catch (error) {
+          console.error("Failed to start MindAR:", error);
+          alert("Could not start camera. Make sure camera permissions are allowed.");
+          if (btn) btn.style.display = 'block';
+        }
+      };
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebARBuild.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/WebARBuild.data.unityweb",
+        frameworkUrl: buildUrl + "/WebARBuild.framework.js.unityweb",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "HizralWork",
+        productName: "WebAR Test",
+        productVersion: "0.1.1",
+      };
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
+        }).then((instance) => {
+          unityInstance = instance;
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
