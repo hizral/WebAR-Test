@@ -1,4 +1,39 @@
-<script type="module">
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>%UNITY_WEB_NAME%</title>
+    
+    <!-- Import Maps to load Three.js and MindAR as ES Modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
+
+    <style>
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+      #unity-container { width: 100%; height: 100%; position: absolute; }
+      #unity-canvas { width: 100% !important; height: 100% !important; background: transparent !important; pointer-events: none; }
+      video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas"></canvas>
+    </div>
+
+    <!-- Manual tap-to-start overlay button -->
+    <button id="ar-start-button" onclick="window.startWebAR()" style="position: absolute; z-index: 999; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 15px 30px; font-size: 18px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+      Start AR Camera
+    </button>
+
+    <script type="module">
       import * as THREE from 'three';
       import { MindARThree } from 'mindar-image-three';
 
@@ -38,9 +73,12 @@
         }
       };
 
-      // Ensure navigator properties exist to prevent Unity loader match errors
-      if (typeof window.navigator.userAgent =
-          = 'undefined') { window.navigator.userAgent = 'CustomBrowser';
+      // Ensure safe navigator userAgent fallback string for Unity loaders
+      if (typeof window.navigator === 'undefined') {
+        window.navigator = {};
+      }
+      if (typeof window.navigator.userAgent !== 'string') {
+        window.navigator.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       }
 
       var buildUrl = "Build";
@@ -66,3 +104,5 @@
       };
       document.body.appendChild(script);
     </script>
+  </body>
+</html>
