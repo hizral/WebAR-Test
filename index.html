@@ -28,9 +28,9 @@
 
     <style>
       body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
-      #unity-container { width: 100%; height: 100%; position: absolute; }
-      #unity-canvas { width: 100% !important; height: 100% !important; background: transparent !important; pointer-events: none; }
-      video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+      #unity-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
+      #unity-canvas { width: 100% !important; height: 100% !important; background: transparent !important; }
+      video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
     </style>
   </head>
   <body>
@@ -54,7 +54,7 @@
         if (btn) btn.style.display = 'none';
 
         try {
-          // Initialize MindAR Three.js instance
+          // Initialize MindAR Three.js instance solely for camera feed and tracking calculations
           const mindarThree = new MindARThree({
             container: document.body,
             imageTargetSrc: "TemplateData/targets.mind",
@@ -62,27 +62,12 @@
 
           const { renderer, scene, camera } = mindarThree;
 
-          // Add ambient and directional lighting so solid MeshStandardMaterials render correctly
-          const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-          scene.add(ambientLight);
-
-          const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-          directionalLight.position.set(0, 1, 1);
-          scene.add(directionalLight);
-
-          // Create target anchor index 0
+          // Add target anchor index 0 to read tracking coordinates
           const anchor = mindarThree.addAnchor(0);
-
-          // Create a solid shaded 3D cube mesh (non-wireframe)
-          const geometry = new THREE.BoxGeometry(1, 1, 1);
-          const material = new THREE.MeshStandardMaterial({ color: 0x007bff, roughness: 0.4 });
-          const cube = new THREE.Mesh(geometry, material);
-          
-          cube.position.set(0, 0.4, 0);
-          anchor.group.add(cube);
 
           await mindarThree.start();
 
+          // Animation loop: Renders background camera feed and sends position/rotation data to Unity
           renderer.setAnimationLoop(() => {
             if (anchor.visible) {
               if (unityInstance != null) {
