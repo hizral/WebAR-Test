@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Unity 6 WebAR - MindAR</title>
     
-    <!-- Use absolute or relative template path for CSS -->
+    <!-- Link stylesheet relative to template root -->
     <link rel="stylesheet" href="style.css">
 
     <!-- Load Three.js and MindAR via standard global scripts to avoid ES module path mapping errors -->
@@ -56,9 +56,12 @@
 
       async function initMindAR() {
         try {
+          // Dynamically resolve targets.mind relative to GitHub Pages subpath to prevent 404 errors
+          const targetUrl = new URL("StreamingAssets/targets.mind", window.location.href).href;
+
           mindarThree = new window.MINDAR.IMAGE.MindARThree({
             container: document.body,
-            imageTargetSrc: "StreamingAssets/targets.mind",
+            imageTargetSrc: targetUrl,
           });
 
           const { renderer, scene, camera } = mindarThree;
@@ -95,29 +98,4 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/WebARBuild.loader.js";
       var config = {
-        dataUrl: buildUrl + "/WebARBuild.data.unityweb",
-        frameworkUrl: buildUrl + "/WebARBuild.framework.js.unityweb",
-        codeUrl: buildUrl + "/WebARBuild.wasm.unityweb",
-        memoryUrl: buildUrl + "/",
-        symbolUrl: buildUrl + "/",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "HizralWork",
-        productName: "WebAR Test",
-        productVersion: "0.1.1",
-      };
-
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
-        }).then((instance) => {
-          unityInstance = instance;
-          initMindAR();
-        }).catch((message) => {
-          alert(message);
-        });
-      };
-      document.body.appendChild(script);
-    </script>
-  </body>
-</html>
+        dataUrl
