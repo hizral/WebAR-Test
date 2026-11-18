@@ -5,11 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Unity 6 WebAR - MindAR</title>
     <link rel="stylesheet" href="TemplateData/style.css">
-    <!-- Include Three.js and MindAR Production Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+    
+    <!-- Import map to load ES modules for Three.js and MindAR v1.2.5 -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.js",
+          "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
+
     <style>
-      /* Ensure HTML/Body and container allow transparency for the webcam feed */
       html, body {
         width: 100%;
         height: 100%;
@@ -31,7 +38,7 @@
         height: 100%;
         background: transparent !important;
       }
-      /* MindAR auto-generated video styling override to ensure it sits behind canvas */
+      /* Ensure MindAR webcam video feed stays behind the transparent canvas */
       video {
         position: absolute;
         top: 0;
@@ -47,29 +54,33 @@
     <div id="unity-container">
       <canvas id="unity-canvas" width="%UNITY_WEBGL_WIDTH%" height="%UNITY_WEBGL_HEIGHT%"></canvas>
     </div>
-    <script>
-      var unityInstance = null;
-      var mindarThree = null;
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { MindARThree } from 'mindar-image-three';
+
+      window.unityInstance = null;
+      let mindarThree = null;
 
       async function initMindAR() {
         try {
-          mindarThree = new window.MINDAR.IMAGE.MindARThree({
+          mindarThree = new MindARThree({
             container: document.body,
             imageTargetSrc: "StreamingAssets/targets.mind",
           });
 
-          const {renderer, scene, camera} = mindarThree;
+          const { renderer, scene, camera } = mindarThree;
           const anchor = mindarThree.addAnchor(0);
 
           anchor.onTargetFound = () => {
-            if (unityInstance) {
-              unityInstance.SendMessage("WebARManager", "OnTargetFound");
+            if (window.unityInstance) {
+              window.unityInstance.SendMessage("WebARManager", "OnTargetFound");
             }
           };
 
           anchor.onTargetLost = () => {
-            if (unityInstance) {
-              unityInstance.SendMessage("WebARManager", "OnTargetLost");
+            if (window.unityInstance) {
+              window.unityInstance.SendMessage("WebARManager", "OnTargetLost");
             }
           };
 
@@ -78,10 +89,10 @@
           await mindarThree.start();
 
           renderer.setAnimationLoop(() => {
-            if (anchor.visible && unityInstance) {
+            if (anchor.visible && window.unityInstance) {
               const matrix = anchor.group.matrixWorld;
               const elements = matrix.elements;
-              unityInstance.SendMessage("WebARManager", "UpdateTrackingData", JSON.stringify(elements));
+              window.unityInstance.SendMessage("WebARManager", "UpdateTrackingData", JSON.stringify(elements));
             }
           });
         } catch (error) {
@@ -108,8 +119,7 @@
       script.onload = () => {
         createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
         }).then((instance) => {
-          unityInstance = instance;
-          // Start MindAR camera feed once Unity instance is active
+          window.unityInstance = instance;
           initMindAR();
         }).catch((message) => {
           alert(message);
