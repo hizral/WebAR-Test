@@ -5,9 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Unity 6 WebAR - MindAR</title>
     <link rel="stylesheet" href="TemplateData/style.css">
-    <!-- Include MindAR and Three.js dependencies -->
+    <!-- Include Three.js and MindAR Production Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+    <style>
+      /* Ensure HTML/Body and container allow transparency for the webcam feed */
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent !important;
+      }
+      #unity-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: transparent !important;
+      }
+      #unity-canvas {
+        width: 100%;
+        height: 100%;
+        background: transparent !important;
+      }
+      /* MindAR auto-generated video styling override to ensure it sits behind canvas */
+      video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+      }
+    </style>
   </head>
   <body>
     <div id="unity-container">
@@ -18,38 +52,41 @@
       var mindarThree = null;
 
       async function initMindAR() {
-        mindarThree = new window.MINDAR.IMAGE.MindARThree({
-          container: document.body,
-          imageTargetSrc: "StreamingAssets/targets.mind", // Place your compiled .mind file in the Build folder
-        });
+        try {
+          mindarThree = new window.MINDAR.IMAGE.MindARThree({
+            container: document.body,
+            imageTargetSrc: "StreamingAssets/targets.mind",
+          });
 
-        const {renderer, scene, camera} = mindarThree;
-        const anchor = mindarThree.addAnchor(0);
+          const {renderer, scene, camera} = mindarThree;
+          const anchor = mindarThree.addAnchor(0);
 
-        // We use MindAR just for tracking data extraction. 
-        // Unity handles 3D object rendering on top of the video feed.
-        anchor.onTargetFound = () => {
-          if (unityInstance) unityInstance.SendMessage("WebARManager", "OnTargetFound");
-        };
-        anchor.onTargetLost = () => {
-          if (unityInstance) unityInstance.SendMessage("WebARManager", "OnTargetLost");
-        };
+          anchor.onTargetFound = () => {
+            if (unityInstance) {
+              unityInstance.SendMessage("WebARManager", "OnTargetFound");
+            }
+          };
 
-        // Pass tracking matrix updates to Unity via JS-to-C# bridge loop
-        anchor.group.matrixAutoUpdate = false;
+          anchor.onTargetLost = () => {
+            if (unityInstance) {
+              unityInstance.SendMessage("WebARManager", "OnTargetLost");
+            }
+          };
 
-        await mindarThree.start();
+          anchor.group.matrixAutoUpdate = false;
 
-        renderer.setAnimationLoop(() => {
-          if (anchor.visible && unityInstance) {
-            // Extract position, rotation, and scale from the tracking matrix
-            const matrix = anchor.group.matrixWorld;
-            const elements = matrix.elements;
-            
-            // Format matrix string or send individual values to Unity script
-            unityInstance.SendMessage("WebARManager", "UpdateTrackingData", JSON.stringify(elements));
-          }
-        });
+          await mindarThree.start();
+
+          renderer.setAnimationLoop(() => {
+            if (anchor.visible && unityInstance) {
+              const matrix = anchor.group.matrixWorld;
+              const elements = matrix.elements;
+              unityInstance.SendMessage("WebARManager", "UpdateTrackingData", JSON.stringify(elements));
+            }
+          });
+        } catch (error) {
+          console.error("Failed to initialize MindAR:", error);
+        }
       }
 
       var buildUrl = "Build";
@@ -72,7 +109,7 @@
         createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
         }).then((instance) => {
           unityInstance = instance;
-          // Initialize MindAR once Unity canvas is ready
+          // Start MindAR camera feed once Unity instance is active
           initMindAR();
         }).catch((message) => {
           alert(message);
