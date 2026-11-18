@@ -1,0 +1,20 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+#unity-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}
+#unity-canvas {
+  width: 100%;
+  height: 100%;
+  background: transparent !important; /* Allow camera video feed to show through */
+}
+/* Hide standard Unity loading bars for clean AR experience */
+#unity-loading-bar { display: none; }

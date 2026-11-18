@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Unity 6 WebAR - MindAR</title>
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <!-- Include MindAR and Three.js dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width="%UNITY_WEBGL_WIDTH%" height="%UNITY_WEBGL_HEIGHT%"></canvas>
+    </div>
+    <script>
+      var unityInstance = null;
+      var mindarThree = null;
+
+      async function initMindAR() {
+        mindarThree = new window.MINDAR.IMAGE.MindARThree({
+          container: document.body,
+          imageTargetSrc: "StreamingAssets/targets.mind", // Place your compiled .mind file in the Build folder
+        });
+
+        const {renderer, scene, camera} = mindarThree;
+        const anchor = mindarThree.addAnchor(0);
+
+        // We use MindAR just for tracking data extraction. 
+        // Unity handles 3D object rendering on top of the video feed.
+        anchor.onTargetFound = () => {
+          if (unityInstance) unityInstance.SendMessage("WebARManager", "OnTargetFound");
+        };
+        anchor.onTargetLost = () => {
+          if (unityInstance) unityInstance.SendMessage("WebARManager", "OnTargetLost");
+        };
+
+        // Pass tracking matrix updates to Unity via JS-to-C# bridge loop
+        anchor.group.matrixAutoUpdate = false;
+
+        await mindarThree.start();
+
+        renderer.setAnimationLoop(() => {
+          if (anchor.visible && unityInstance) {
+            // Extract position, rotation, and scale from the tracking matrix
+            const matrix = anchor.group.matrixWorld;
+            const elements = matrix.elements;
+            
+            // Format matrix string or send individual values to Unity script
+            unityInstance.SendMessage("WebARManager", "UpdateTrackingData", JSON.stringify(elements));
+          }
+        });
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebARBuild.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/WebARBuild.data.unityweb",
+        frameworkUrl: buildUrl + "/WebARBuild.framework.js.unityweb",
+        codeUrl: buildUrl + "/WebARBuild.wasm.unityweb",
+        memoryUrl: buildUrl + "/",
+        symbolUrl: buildUrl + "/",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "HizralWork",
+        productName: "WebAR Test",
+        productVersion: "0.1.1",
+      };
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
+        }).then((instance) => {
+          unityInstance = instance;
+          // Initialize MindAR once Unity canvas is ready
+          initMindAR();
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
