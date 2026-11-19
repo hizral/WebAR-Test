@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>WebAR</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    #ar-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #webcam-video, #unity-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #webcam-video {
+      z-index: 1;
+    }
+    #unity-canvas {
+      z-index: 2;
+      background: transparent !important;
+      pointer-events: auto;
+    }
+    #start-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-family: sans-serif;
+    }
+    #start-btn {
+      padding: 14px 28px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #00a8ff;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+  <!-- Load MindAR standalone image tracking library -->
+  <script type="importmap">
+  {
+    "imports": {
+      "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="ar-container">
+    <video id="webcam-video" autoplay muted playsinline></video>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="start-overlay" style="display:none;">
+      <button id="start-btn">Tap to Start AR Camera</button>
+    </div>
+  </div>
+
+  <script src="Build/Build.loader.js"></script>
+  <script type="module">
+    import { Controller } from "mindar-image";
+
+    let unityInstance = null;
+
+    createUnityInstance(document.querySelector("#unity-canvas"), {
+      dataUrl: "Build/Build.data.unityweb",
+      frameworkUrl: "Build/Build.framework.js.unityweb",
+      codeUrl: "Build/Build.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DreamEDGE",
+      productName: "WebAR",
+      productVersion: "0.1.0",
+      webglContextAttributes: { alpha: true, premultipliedAlpha: false }
+    }).then((instance) => {
+      unityInstance = instance;
+    });
+
+    window.initMindARFromUnity = async function(targetFileUrl, unityObjName) {
+      const video = document.getElementById("webcam-video");
+      const overlay = document.getElementById("start-overlay");
+      const startBtn = document.getElementById("start-btn");
+
+      const startCameraAndTracking = async () => {
+        overlay.style.display = "none";
+
+        // Request rear camera on mobile, falls back gracefully to default webcam on PC
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        });
+
+        video.srcObject = stream;
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            video.play();
+            resolve();
+          };
+        });
+
+        // Mirror video horizontally only if using a front-facing PC webcam
+        const trackSettings = stream.getVideoTracks()[0].getSettings();
+        const isFrontCam = trackSettings.facingMode === "user";
+        video.style.transform = isFrontCam ? "scaleX(-1)" : "none";
+
+        const controller = new Controller({
+          inputWidth: video.videoWidth,
+          inputHeight: video.videoHeight,
+          onUpdate: (data) => {
+            if (data.type === "updateMatrix") {
+              const { targetIndex, worldMatrix } = data;
+              if (targetIndex === 0 && unityInstance) {
+                if (worldMatrix) {
+                  unityInstance.SendMessage(unityObjName, "OnTargetUpdate", worldMatrix.join(","));
+                } else {
+                  unityInstance.SendMessage(unityObjName, "OnTargetUpdate", "LOST");
+                }
+              }
+            }
+          }
+        });
+
+        const { dimensions } = await controller.addImageTargets(targetFileUrl);
+        const projMatrix = controller.getProjectionMatrix();
+        unityInstance.SendMessage(unityObjName, "OnMindARReady", projMatrix.join(","));
+
+        await controller.dummyRun(video);
+        controller.processVideo(video);
+      };
+
+      // Mobile Safari/Chrome often require a user tap gesture before getUserMedia()
+      overlay.style.display = "flex";
+      startBtn.onclick = () => {
+        startCameraAndTracking().catch((err) => {
+          alert("Camera access failed: " + err.message);
+        });
+      };
+    };
+  </script>
+</body>
+</html>
