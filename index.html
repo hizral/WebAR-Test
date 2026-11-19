@@ -132,6 +132,7 @@
               const { targetIndex, worldMatrix } = data;
               if (targetIndex === 0 && unityInstance) {
                 if (worldMatrix) {
+                  console.log("TARGET FOUND:", worldMatrix[12], worldMatrix[13], worldMatrix[14]);
                   unityInstance.SendMessage(unityObjName, "OnTargetUpdate", worldMatrix.join(","));
                 } else {
                   unityInstance.SendMessage(unityObjName, "OnTargetUpdate", "LOST");
