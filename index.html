@@ -35,6 +35,55 @@
       background: transparent !important;
       pointer-events: auto;
     }
+    #tracking-badge {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #tracking-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #f59e0b;
+    }
+    .state-loading #tracking-dot { background: #f59e0b; }
+    .state-scanning #tracking-dot {
+      background: #38bdf8;
+      animation: pulse 1.2s infinite;
+    }
+    .state-detected {
+      border-color: rgba(34, 197, 94, 0.8) !important;
+      background: rgba(20, 83, 45, 0.85) !important;
+    }
+    .state-detected #tracking-dot { background: #22c55e; }
+    .state-error {
+      border-color: rgba(239, 68, 68, 0.85) !important;
+      background: rgba(127, 29, 29, 0.9) !important;
+    }
+    .state-error #tracking-dot { background: #ef4444; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
     #start-overlay {
       position: absolute;
       inset: 0;
@@ -56,19 +105,17 @@
       cursor: pointer;
     }
   </style>
-  <!-- Load MindAR standalone image tracking library -->
-  <script type="importmap">
-  {
-    "imports": {
-      "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"
-    }
-  }
-  </script>
 </head>
 <body>
   <div id="ar-container">
     <video id="webcam-video" autoplay muted playsinline></video>
     <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+    <div id="tracking-badge" class="state-loading">
+      <span id="tracking-dot"></span>
+      <span id="tracking-text">Initializing AR...</span>
+    </div>
+
     <div id="start-overlay" style="display:none;">
       <button id="start-btn">Tap to Start AR Camera</button>
     </div>
@@ -76,9 +123,17 @@
 
   <script src="Build/Build.loader.js"></script>
   <script type="module">
-    import { Controller } from "mindar-image";
+    import { Controller } from "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js";
 
     let unityInstance = null;
+    const badge = document.getElementById("tracking-badge");
+    const badgeText = document.getElementById("tracking-text");
+
+    function setTrackingStatus(state, text) {
+      badge.style.display = "flex";
+      badge.className = "state-" + state;
+      badgeText.textContent = text;
+    }
 
     createUnityInstance(document.querySelector("#unity-canvas"), {
       dataUrl: "Build/Build.data.unityweb",
@@ -100,8 +155,8 @@
 
       const startCameraAndTracking = async () => {
         overlay.style.display = "none";
+        setTrackingStatus("loading", "Starting camera...");
 
-        // Request rear camera on mobile, falls back gracefully to default webcam on PC
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -119,10 +174,14 @@
           };
         });
 
-        // Mirror video horizontally only if using a front-facing PC webcam
         const trackSettings = stream.getVideoTracks()[0].getSettings();
         const isFrontCam = trackSettings.facingMode === "user";
         video.style.transform = isFrontCam ? "scaleX(-1)" : "none";
+
+        setTrackingStatus("loading", "Loading targets.mind...");
+
+        let frameCount = 0;
+        let lastState = "";
 
         const controller = new Controller({
           inputWidth: video.videoWidth,
@@ -132,9 +191,17 @@
               const { targetIndex, worldMatrix } = data;
               if (targetIndex === 0 && unityInstance) {
                 if (worldMatrix) {
-                  console.log("TARGET FOUND:", worldMatrix[12], worldMatrix[13], worldMatrix[14]);
+                  if (lastState !== "detected") {
+                    lastState = "detected";
+                    setTrackingStatus("detected", "Target Detected");
+                  }
                   unityInstance.SendMessage(unityObjName, "OnTargetUpdate", worldMatrix.join(","));
                 } else {
+                  frameCount++;
+                  if (lastState !== "scanning" || frameCount % 30 === 0) {
+                    lastState = "scanning";
+                    setTrackingStatus("scanning", "Scanning for Target... (" + frameCount + ")");
+                  }
                   unityInstance.SendMessage(unityObjName, "OnTargetUpdate", "LOST");
                 }
               }
@@ -142,19 +209,25 @@
           }
         });
 
-        const { dimensions } = await controller.addImageTargets(targetFileUrl);
+        try {
+          await controller.addImageTargets(targetFileUrl);
+        } catch (err) {
+          setTrackingStatus("error", "Failed to load targets.mind: " + err.message);
+          throw err;
+        }
+
         const projMatrix = controller.getProjectionMatrix();
         unityInstance.SendMessage(unityObjName, "OnMindARReady", projMatrix.join(","));
 
         await controller.dummyRun(video);
+        setTrackingStatus("scanning", "Scanning for Target...");
         controller.processVideo(video);
       };
 
-      // Mobile Safari/Chrome often require a user tap gesture before getUserMedia()
       overlay.style.display = "flex";
       startBtn.onclick = () => {
         startCameraAndTracking().catch((err) => {
-          alert("Camera access failed: " + err.message);
+          setTrackingStatus("error", "AR Error: " + err.message);
         });
       };
     };
