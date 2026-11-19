@@ -169,16 +169,17 @@
         video.srcObject = stream;
         await new Promise((resolve) => {
           video.onloadedmetadata = () => {
+            video.width = video.videoWidth;
+            video.height = video.videoHeight;
             video.play();
             resolve();
           };
         });
 
-        const trackSettings = stream.getVideoTracks()[0].getSettings();
-        const isFrontCam = trackSettings.facingMode === "user";
-        video.style.transform = isFrontCam ? "scaleX(-1)" : "none";
+        // Do NOT mirror video so visual orientation matches MindAR's raw frame buffer
+        video.style.transform = "none";
 
-        setTrackingStatus("loading", "Loading targets.mind...");
+        setTrackingStatus("loading", `Init tracking (${video.videoWidth}x${video.videoHeight})...`);
 
         let frameCount = 0;
         let lastState = "";
