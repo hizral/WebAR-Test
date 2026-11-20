@@ -176,9 +176,7 @@
           };
         });
 
-        // Do NOT mirror video so visual orientation matches MindAR's raw frame buffer
         video.style.transform = "none";
-
         setTrackingStatus("loading", `Init tracking (${video.videoWidth}x${video.videoHeight})...`);
 
         let frameCount = 0;
@@ -211,14 +209,19 @@
         });
 
         try {
-          await controller.addImageTargets(targetFileUrl);
+          const { dimensions } = await controller.addImageTargets(targetFileUrl);
+          const projMatrix = controller.getProjectionMatrix();
+          const targetSize = dimensions && dimensions[0] ? dimensions[0] : [500, 500];
+
+          unityInstance.SendMessage(
+            unityObjName,
+            "OnMindARReady",
+            JSON.stringify({ proj: Array.from(projMatrix), size: targetSize })
+          );
         } catch (err) {
           setTrackingStatus("error", "Failed to load targets.mind: " + err.message);
           throw err;
         }
-
-        const projMatrix = controller.getProjectionMatrix();
-        unityInstance.SendMessage(unityObjName, "OnMindARReady", projMatrix.join(","));
 
         await controller.dummyRun(video);
         setTrackingStatus("scanning", "Scanning for Target...");
