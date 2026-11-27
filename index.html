@@ -161,8 +161,8 @@
           audio: false,
           video: {
             facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 640 },
+            height: { ideal: 480 }
           }
         });
 
@@ -185,6 +185,9 @@
         const controller = new Controller({
           inputWidth: video.videoWidth,
           inputHeight: video.videoHeight,
+          filterMinCF: 0.0001,
+          filterBeta: 1000,
+          missTolerance: 5,
           onUpdate: (data) => {
             if (data.type === "updateMatrix") {
               const { targetIndex, worldMatrix } = data;
